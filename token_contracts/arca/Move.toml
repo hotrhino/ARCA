@@ -1,0 +1,12 @@
+[package]
+name = "loa"
+version = "0.0.1"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "main" }
+Multisig = {git = "https://github.com/Everest-Ventures-Group/Multisig.git", rev="master"}
+
+[addresses]
+loa =  "0x0"
+sui =  "0x2"
+std =  "0x1"
