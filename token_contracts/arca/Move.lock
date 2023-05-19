@@ -4,8 +4,8 @@
 version = 0
 
 dependencies = [
-  { name = "Multisig" },
   { name = "Sui" },
+  { name = "multisig" },
 ]
 
 [[move.package]]
@@ -13,17 +13,17 @@ name = "MoveStdlib"
 source = { git = "https://github.com/MystenLabs/sui.git", rev = "main", subdir = "crates/sui-framework/packages/move-stdlib" }
 
 [[move.package]]
-name = "Multisig"
-source = { git = "https://github.com/Everest-Ventures-Group/Multisig.git", rev = "master", subdir = "" }
-
-dependencies = [
-  { name = "Sui" },
-]
-
-[[move.package]]
 name = "Sui"
 source = { git = "https://github.com/MystenLabs/sui.git", rev = "main", subdir = "crates/sui-framework/packages/sui-framework" }
 
 dependencies = [
   { name = "MoveStdlib" },
+]
+
+[[move.package]]
+name = "multisig"
+source = { git = "https://github.com/Everest-Ventures-Group/Multisig.git", rev = "master", subdir = "" }
+
+dependencies = [
+  { name = "Sui" },
 ]
