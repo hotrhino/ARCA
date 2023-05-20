@@ -12,6 +12,8 @@ module loa::arca{
 
     struct ARCA has drop {}
 
+    const MaxSupply:u64 = 2000000000000000000;
+
     const MintOperation: u64 = 1;
     const BurnOperation: u64 = 2;
     const UpdateMetadataOperation: u64 = 3;
@@ -79,7 +81,7 @@ module loa::arca{
 
 
     fun init(witness: ARCA, tx: &mut TxContext) {
-        let (treasury_cap, coin_meta) = coin::create_currency<ARCA>(witness, 18, b"T2", b"T2", b"T2 Token", option::none(), tx);
+        let (treasury_cap, coin_meta) = coin::create_currency<ARCA>(witness, 10, b"ARCA", b"ARCA", b"ARCA Token", option::none(), tx);
         let multi_sig = multisig::create_multisig(tx);
 
         let gardin = Gardian {
@@ -92,7 +94,7 @@ module loa::arca{
         transfer::share_object(gardin);
         transfer::share_object(ExtraCoinMeta{
             id: object::new(tx),
-            max_supply:300000000
+            max_supply: MaxSupply
         });
 
     }
