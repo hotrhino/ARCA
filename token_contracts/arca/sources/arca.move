@@ -143,7 +143,7 @@ module loa::arca{
     public entry fun burn_execute(gardin: &mut Gardian,  multi_signature: &mut MultiSignature, _extra_metadata: &ExtraCoinMeta, proposal_id: u256,  tx: &mut TxContext) {
         if (multisig::is_proposal_approved(multi_signature, proposal_id)) {
             // let request = multisig::borrow_proposal_request<BurnRequest>(multi_signature, proposal_id);
-            let request: BurnRequest = multisig::extract_proposal_request<BurnRequest>(multi_signature, proposal_id);
+            let request: BurnRequest = multisig::extract_proposal_request<BurnRequest>(multi_signature, proposal_id, tx);
             burn(gardin, request, tx);
             multisig::multisig::mark_proposal_complete(multi_signature, proposal_id, tx);
         }

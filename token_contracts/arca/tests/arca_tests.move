@@ -6,6 +6,7 @@ module loa::arca_tests {
     use sui::coin::{Self, Coin};
     use sui::test_scenario::{Self, next_tx, ctx};
     use multisig::multisig::{Self, MultiSignature};
+    use std::vector;
     
     #[test]
     fun test_mint_burn() {
@@ -17,28 +18,52 @@ module loa::arca_tests {
         let scenario_val = test_scenario::begin(addr1);
         let scenario = &mut scenario_val;
 
-
         // Run the arca coin module init function
         {
             arca::test_init(ctx(scenario))
         };
 
+        let multi_sign: MultiSignature;
+        let gardian_val: Gardian;
         // Mint a `Coin<ARCA>` object
         next_tx(scenario, addr1);
         {
-            let gardian_val = test_scenario::take_shared<Gardian>(scenario);
+            multi_sign = test_scenario::take_shared<MultiSignature>(scenario);
+            gardian_val = test_scenario::take_shared<Gardian>(scenario);
             let gardian = &mut gardian_val;
             let extra_coin_meta_val = test_scenario::take_shared<ExtraCoinMeta>(scenario);
             let extra_coin_meta = &mut extra_coin_meta_val;
             let ctx = test_scenario::ctx(scenario);
 
-            // TODO switch to multisign
-            // arca::grant_role(gardian, addr1, ctx);
             // arca::mint(gardian, extra_coin_meta, 100000, addr1, ctx);
-
-            test_scenario::return_shared(gardian_val);
+            arca::mint_request(gardian, multi_sign, extra_coin_meta_val, 100000, addr1, ctx);
             test_scenario::return_shared(extra_coin_meta_val);
         };
+
+        // find proposal id from multisig
+        let proposal_id: u256;
+        test_scenario::next_tx(scenario, addr1);
+        {
+            let proposals = multisig::multisig::pending_proposals(&mut multi_sign, addr1, test_scenario::ctx(scenario));
+            assert!(vector::length(&proposals) == 1, 1);
+            proposal_id = vector::pop_back(&mut proposals);
+        };
+
+        // vote for mint
+        test_scenario::next_tx(scenario, addr1);
+        {
+            multisig::multisig::vote(&mut multi_sign, proposal_id, true, test_scenario::ctx(scenario));
+        };
+
+        // mint execute
+        test_scenario::next_tx(scenario, addr1);
+        {
+            // TODO correct the parameter
+            arca::mint_execute(gardian,&mut multi_sig, proposal_id, test_scenario::ctx(scenario));
+            
+        };
+        test_scenario::return_shared(gardian_val);
+        
 
         // verify the mint result
         next_tx(scenario, addr1);
