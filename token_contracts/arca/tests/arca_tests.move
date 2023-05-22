@@ -68,7 +68,7 @@ module loa::arca_tests {
         next_tx(scenario, addr1);
         {
             let coin_arca:Coin<ARCA> = test_scenario::take_from_sender<Coin<ARCA>>(scenario);
-            assert!(coin::value(&coin_arca) == 100000, 0); 
+            assert!(coin::value(&coin_arca) == 200000, 0); 
             test_scenario::return_to_address<Coin<ARCA>>(addr1, coin_arca);
         };
 
