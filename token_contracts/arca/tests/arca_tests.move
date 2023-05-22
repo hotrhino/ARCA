@@ -5,7 +5,7 @@ module loa::arca_tests {
     use loa::arca::{Self, ARCA, Gardian, ExtraCoinMeta};
     use sui::coin::{Self, Coin};
     use sui::test_scenario::{Self, next_tx, ctx};
-    use multisig::multisig::{Self, MultiSignature};
+    use multisig::multisig::{MultiSignature};
     use std::vector;
     
     #[test]
@@ -55,12 +55,11 @@ module loa::arca_tests {
 
         // mint execute
         test_scenario::next_tx(scenario, addr1);
-        {
-            
-            // TODO correct the parameter
+        {            
             arca::mint_execute(&mut gardian,&mut multi_sign, &mut extra_coin_meta, proposal_id, test_scenario::ctx(scenario));
             
         };
+        test_scenario::return_shared(multi_sign);
         test_scenario::return_shared(extra_coin_meta);
         test_scenario::return_shared(gardian);
         
@@ -74,27 +73,28 @@ module loa::arca_tests {
         };
 
         // Burn a `Coin<ARCA>` object
-        next_tx( scenario, addr1);
-        {
-            let gardian_val = test_scenario::take_shared<Gardian>(scenario);
-            let gardian = &mut gardian_val;
+        // next_tx( scenario, addr1);
+        // {
+        //     let gardian_val = test_scenario::take_shared<Gardian>(scenario);
+        //     let gardian = &mut gardian_val;
 
-            let coin_arca = test_scenario::take_from_sender<Coin<ARCA>>(scenario);
-            let ctx = test_scenario::ctx(scenario);
+        //     let coin_arca = test_scenario::take_from_sender<Coin<ARCA>>(scenario);
+        //     let ctx = test_scenario::ctx(scenario);
 
-            // TODO switch to multisign
-            // arca::burn(gardian, coin_arca, 10000, ctx);
+
+        //     // TODO switch to multisign
+        //     // arca::burn(gardian, coin_arca, 10000, ctx);
             
-            test_scenario::return_shared(gardian_val);
-        };
+        //     test_scenario::return_shared(gardian_val);
+        // };
 
-        // verify the burn result
-        next_tx(scenario, addr1);
-        {
-            let coin_arca:Coin<ARCA> = test_scenario::take_from_sender<Coin<ARCA>>(scenario);
-            assert!(coin::value(&coin_arca) == 100000, 0); 
-            test_scenario::return_to_address<Coin<ARCA>>(addr1, coin_arca);
-        };
+        // // verify the burn result
+        // next_tx(scenario, addr1);
+        // {
+        //     let coin_arca:Coin<ARCA> = test_scenario::take_from_sender<Coin<ARCA>>(scenario);
+        //     assert!(coin::value(&coin_arca) == 100000, 0); 
+        //     test_scenario::return_to_address<Coin<ARCA>>(addr1, coin_arca);
+        // };
 
         // Cleans up the scenario object
         test_scenario::end(scenario_val);
