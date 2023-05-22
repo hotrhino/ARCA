@@ -24,20 +24,18 @@ module loa::arca_tests {
         };
 
         let multi_sign: MultiSignature;
-        let gardian_val: Gardian;
+        let gardian: Gardian;
+        let extra_coin_meta: ExtraCoinMeta;
         // Mint a `Coin<ARCA>` object
         next_tx(scenario, addr1);
         {
             multi_sign = test_scenario::take_shared<MultiSignature>(scenario);
-            gardian_val = test_scenario::take_shared<Gardian>(scenario);
-            let gardian = &mut gardian_val;
-            let extra_coin_meta_val = test_scenario::take_shared<ExtraCoinMeta>(scenario);
-            let extra_coin_meta = &mut extra_coin_meta_val;
+            gardian = test_scenario::take_shared<Gardian>(scenario);
+            extra_coin_meta = test_scenario::take_shared<ExtraCoinMeta>(scenario);
             let ctx = test_scenario::ctx(scenario);
 
             // arca::mint(gardian, extra_coin_meta, 100000, addr1, ctx);
-            arca::mint_request(gardian, multi_sign, extra_coin_meta_val, 100000, addr1, ctx);
-            test_scenario::return_shared(extra_coin_meta_val);
+            arca::mint_request(&mut gardian, &mut multi_sign, &mut extra_coin_meta, 100000, addr1, ctx);
         };
 
         // find proposal id from multisig
@@ -58,11 +56,13 @@ module loa::arca_tests {
         // mint execute
         test_scenario::next_tx(scenario, addr1);
         {
+            
             // TODO correct the parameter
-            arca::mint_execute(gardian,&mut multi_sig, proposal_id, test_scenario::ctx(scenario));
+            arca::mint_execute(&mut gardian,&mut multi_sign, &mut extra_coin_meta, proposal_id, test_scenario::ctx(scenario));
             
         };
-        test_scenario::return_shared(gardian_val);
+        test_scenario::return_shared(extra_coin_meta);
+        test_scenario::return_shared(gardian);
         
 
         // verify the mint result
