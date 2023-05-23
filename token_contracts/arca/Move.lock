@@ -4,6 +4,7 @@
 version = 0
 
 dependencies = [
+  { name = "Sui" },
   { name = "multisig" },
 ]
 

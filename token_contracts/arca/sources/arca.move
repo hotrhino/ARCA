@@ -12,7 +12,8 @@ module loa::arca{
 
     struct ARCA has drop {}
 
-    const MaxSupply:u64 = 2000000000000000000;
+    const Decimals:u8 = 9;
+    const MaxSupply:u64 = 1000000000_0000000000;
 
     const MintOperation: u64 = 1;
     const BurnOperation: u64 = 2;
@@ -80,7 +81,7 @@ module loa::arca{
 
 
     fun init(witness: ARCA, tx: &mut TxContext) {
-        let (treasury_cap, coin_meta) = coin::create_currency<ARCA>(witness, 10, b"ARCA", b"ARCA", b"ARCA Token", option::none(), tx);
+        let (treasury_cap, coin_meta) = coin::create_currency<ARCA>(witness, Decimals, b"ARCA", b"ARCA", b"ARCA Token", option::none(), tx);
         let multi_sig = multisig::create_multisig(tx);
 
         let gardian = Gardian {
