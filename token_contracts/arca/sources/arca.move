@@ -1,13 +1,13 @@
 module loa::arca{
     use std::string;
-    use std::ascii;
-    use std::option::{Self, Option};
+    use std::option::{Self};
 
     use sui::object::{Self, ID, UID};
     use sui::coin::{Self, Coin, TreasuryCap, CoinMetadata};
     use sui::tx_context::{Self, TxContext};
     use sui::transfer;
     use sui::event;
+    use sui::url;
     use multisig::multisig::{Self, MultiSignature};
 
     struct ARCA has drop {}
@@ -46,17 +46,16 @@ module loa::arca{
 
     struct BurnRequest has key, store {
         id: UID,
-        coin: Option<Coin<ARCA>>,
-        amount: Option<u64>,
+        coin: Coin<ARCA>,
     }
 
     struct UpdateMetadataRequest has key, store {
         id: UID,
-        name: Option<string::String>,
-        symbol: Option<ascii::String>,
-        description: Option<string::String>,
-        icon_url: Option<ascii::String>,
-        max_supply: Option<u64>,
+        name: string::String,
+        symbol: string::String,
+        description: string::String,
+        icon_url: string::String,
+        max_supply: u64,
     }
 
     // ===== Events =====
@@ -120,7 +119,10 @@ module loa::arca{
         only_participant(multi_signature, tx);
 
         if (multisig::is_proposal_approved(multi_signature, proposal_id)) {
-            let request = multisig::borrow_proposal_request<MintRequest>(multi_signature, proposal_id);
+            // let request = multisig::borrow_proposal_request<MintRequest>(multi_signature, proposal_id);
+            let pending_proposals = multisig::get_pending_proposals(multi_signature);
+            let proposal = multisig::get_proposal(pending_proposals, &proposal_id);
+            let request = multisig::borrow_proposal_request<MintRequest>(proposal);
             // final check for the max supply cap
             max_supply_not_exceed(gardian, extra_metadata, request.amount);
             // execute the mint action
@@ -145,7 +147,7 @@ module loa::arca{
     }
 
     /// send mint request, wait for the multi signature result to be executed or not
-    public entry fun burn_request(gardian: &mut Gardian, multi_signature : &mut MultiSignature,  c: Coin<ARCA>, amount: Option<u64>, tx: &mut TxContext) {
+    public entry fun burn_request(gardian: &mut Gardian, multi_signature : &mut MultiSignature, c: Coin<ARCA>, tx: &mut TxContext) {
         // Only multi sig gardian
         only_multi_sig_scope(multi_signature, gardian);
         // Only participant
@@ -157,8 +159,7 @@ module loa::arca{
             BurnOperation, 
             BurnRequest{
                 id: object::new(tx), 
-                coin: option::some(c), 
-                amount: amount
+                coin: c, 
                 }, tx);
     }
 
@@ -172,26 +173,20 @@ module loa::arca{
         if (multisig::is_proposal_approved(multi_signature, proposal_id)) {
             // let request = multisig::borrow_proposal_request<BurnRequest>(multi_signature, proposal_id);
             let request: BurnRequest = multisig::extract_proposal_request<BurnRequest>(multi_signature, proposal_id, tx);
+            // let pending_proposals = multisig::get_pending_proposals(multi_signature);
+            // let proposal = multisig::get_proposal(pending_proposals, &proposal_id);
+            // let request = multisig::extract_proposal_request<BurnRequest>(proposal);
+
             burn(gardian, request, tx);
             multisig::multisig::mark_proposal_complete(multi_signature, proposal_id, tx);
         }
     }
 
     fun burn(gardian: &mut Gardian, request: BurnRequest, tx: &mut TxContext) {
-        // can only burn the coin belong to the sender
-
-        if (option::is_none(&request.amount)) {
-            // burn to destory the whole coin
-            coin::burn(&mut gardian.treasury_cap, option::extract(&mut request.coin));
-            
-        } else {
-            // TODO burn part of the coin
-            // coin::burn(&mut gardian.treasury_cap, c);
-        };
-        let BurnRequest {id, coin, amount} = request;
+        let BurnRequest {id, coin} = request;
+        // burn to destory the whole coin    
+        coin::burn(&mut gardian.treasury_cap, coin);
         object::delete(id);
-        option::destroy_none(coin);
-        option::destroy_none(amount);
         
         event::emit(CoinBurned{ cashier: tx_context::sender(tx)});
     }
@@ -202,11 +197,11 @@ module loa::arca{
     public entry fun update_metadata_request(
         gardian: &mut Gardian, 
         multi_signature : &mut MultiSignature,  
-        name: Option<string::String>,
-        symbol: Option<ascii::String>,
-        description: Option<string::String>,
-        icon_url: Option<ascii::String>,
-        max_supply: Option<u64>, 
+        name: string::String,
+        symbol: string::String,
+        description: string::String,
+        icon_url: string::String,
+        max_supply: u64, 
         tx: &mut TxContext
     ) {
 
@@ -245,7 +240,10 @@ module loa::arca{
 
         // make sure proposal got approved
         if (multisig::is_proposal_approved(multi_signature, proposal_id)) {
-            let request = multisig::borrow_proposal_request<UpdateMetadataRequest>(multi_signature, proposal_id);
+            let pending_proposals = multisig::get_pending_proposals(multi_signature);
+            let proposal = multisig::get_proposal(pending_proposals, &proposal_id);
+            let request = multisig::borrow_proposal_request<UpdateMetadataRequest>(proposal);
+            // let request = multisig::borrow_proposal_request<UpdateMetadataRequest>(multi_signature, proposal_id);
             update_metadata(gardian, metadata, extra_metadata, request, tx);
             multisig::multisig::mark_proposal_complete(multi_signature, proposal_id, tx);
         };
@@ -258,25 +256,28 @@ module loa::arca{
         extra_metadata: &mut ExtraCoinMeta,
         request: & UpdateMetadataRequest, 
         _tx: &mut TxContext) {
-        if (option::is_some(&request.name)) {
-            coin::update_name(&gardian.treasury_cap, metadata, *option::borrow(&request.name));
+        if (!string::is_empty(&request.name) && coin::get_name(metadata) != request.name) {
+            coin::update_name(&gardian.treasury_cap, metadata, request.name);
         };
         
-        if (option::is_some(&request.symbol)) {
-            coin::update_symbol(&gardian.treasury_cap, metadata, *option::borrow(&request.symbol));
+        if (!string::is_empty(&request.symbol) && coin::get_symbol(metadata) != string::to_ascii(request.symbol)) {
+            coin::update_symbol(&gardian.treasury_cap, metadata, string::to_ascii(request.symbol));
         };
 
-        if (option::is_some(&request.description)) {
-            coin::update_description(&gardian.treasury_cap, metadata, *option::borrow(&request.description));
+        if (!string::is_empty(&request.description) && coin::get_description(metadata) != request.description) {
+            coin::update_description(&gardian.treasury_cap, metadata, request.description);
         };
 
-        if (option::is_some(&request.icon_url)) {
-            coin::update_icon_url(&gardian.treasury_cap, metadata, *option::borrow(&request.icon_url));
+        if (!string::is_empty(&request.icon_url) 
+            && (option::is_none(&coin::get_icon_url(metadata)) || option::extract(&mut coin::get_icon_url(metadata)) != url::new_unsafe(string::to_ascii(request.icon_url)))) {
+            coin::update_icon_url(&gardian.treasury_cap, metadata, string::to_ascii(request.icon_url));
         };
 
-        if (option::is_some(&request.max_supply)) {
-            extra_metadata.max_supply = *option::borrow(&request.max_supply);
+
+        if (extra_metadata.max_supply != request.max_supply) {
+            extra_metadata.max_supply = request.max_supply;
         };
+
     }
 
     /// Return the max supply for the Coin

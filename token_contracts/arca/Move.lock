@@ -22,7 +22,7 @@ dependencies = [
 
 [[move.package]]
 name = "multisig"
-source = { git = "https://github.com/Everest-Ventures-Group/Multisig.git", rev = "master", subdir = "" }
+source = { git = "https://github.com/Everest-Ventures-Group/Multisig.git", rev = "dev", subdir = "" }
 
 dependencies = [
   { name = "Sui" },

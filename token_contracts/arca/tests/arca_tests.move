@@ -6,7 +6,6 @@ module loa::arca_tests {
     use sui::coin::{Self, Coin};
     use sui::test_scenario::{Self, next_tx, ctx};
     use multisig::multisig::{MultiSignature};
-    use std::option::{Self};
     use std::vector;
 
     // Initialize a mock sender address
@@ -352,7 +351,7 @@ module loa::arca_tests {
             let ctx = test_scenario::ctx(scenario);
 
             // arca::burn(gardian, coin_arca, 10000, ctx);
-            arca::burn_request(&mut gardian, &mut multi_sign, coin_arca, option::none(), ctx);
+            arca::burn_request(&mut gardian, &mut multi_sign, coin_arca, ctx);
             
             // test_scenario::return_to_sender(coin_arca, ctx);
         };
