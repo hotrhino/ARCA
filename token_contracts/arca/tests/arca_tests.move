@@ -231,7 +231,6 @@ module loa::arca_tests {
 
             multisig::multisig::create_multisig_setting_proposal(
                 &mut multi_sign, 
-                b"propose from B", 
                 participants, 
                 participant_weights, 
                 remove, 
