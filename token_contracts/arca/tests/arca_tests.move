@@ -48,7 +48,7 @@ module loa::arca_tests {
         let proposal_id: u256;
         test_scenario::next_tx(scenario, USER);
         {
-            let proposals = multisig::multisig::pending_proposals(&mut multi_sign, USER, test_scenario::ctx(scenario));
+            let proposals = multisig::multisig::pending_proposals(&mut multi_sign, test_scenario::ctx(scenario));
             assert!(vector::length(&proposals) == 1, 1);
             proposal_id = vector::pop_back(&mut proposals);
         };
@@ -62,8 +62,7 @@ module loa::arca_tests {
         // mint execute
         test_scenario::next_tx(scenario, USER);
         {            
-            arca::mint_execute(&mut gardian,&mut multi_sign, &mut extra_coin_meta, proposal_id, test_scenario::ctx(scenario));
-            
+            arca::mint_execute(&mut gardian,&mut multi_sign, &mut extra_coin_meta, proposal_id, true, test_scenario::ctx(scenario));
         };
         test_scenario::return_shared(multi_sign);
         test_scenario::return_shared(extra_coin_meta);
@@ -230,7 +229,14 @@ module loa::arca_tests {
             let participant_weights = weight_vector();
             let remove = vector::empty<address>();
 
-            multisig::multisig::create_multisig_setting_proposal(&mut multi_sign, b"propose from B", participants, participant_weights, remove, test_scenario::ctx(scenario));
+            multisig::multisig::create_multisig_setting_proposal(
+                &mut multi_sign, 
+                b"propose from B", 
+                participants, 
+                participant_weights, 
+                remove, 
+                3,
+                test_scenario::ctx(scenario));
         };
 
         next_tx(scenario, USER);
@@ -256,7 +262,7 @@ module loa::arca_tests {
         next_tx(scenario, USER);
         let proposal_id: u256;
         {
-            let proposals = multisig::multisig::pending_proposals(&mut multi_sign, USER, test_scenario::ctx(scenario));
+            let proposals = multisig::multisig::pending_proposals(&mut multi_sign, test_scenario::ctx(scenario));
             assert!(vector::length(&proposals) == 1, 1);
             proposal_id = vector::pop_back(&mut proposals);
         };
@@ -276,7 +282,7 @@ module loa::arca_tests {
         // mint execute
         test_scenario::next_tx(scenario, PARTICIPANT_BOSS);
         {            
-            arca::mint_execute(&mut gardian,&mut multi_sign, &mut extra_coin_meta, proposal_id, test_scenario::ctx(scenario));
+            arca::mint_execute(&mut gardian,&mut multi_sign, &mut extra_coin_meta, proposal_id, true, test_scenario::ctx(scenario));
         };
         test_scenario::return_shared(multi_sign);
         test_scenario::return_shared(extra_coin_meta);
@@ -325,7 +331,7 @@ module loa::arca_tests {
         let proposal_id: u256;
         test_scenario::next_tx(scenario, USER);
         {
-            let proposals = multisig::multisig::pending_proposals(&mut multi_sign, USER, test_scenario::ctx(scenario));
+            let proposals = multisig::multisig::pending_proposals(&mut multi_sign, test_scenario::ctx(scenario));
             assert!(vector::length(&proposals) == 1, 1);
             proposal_id = vector::pop_back(&mut proposals);
         };
@@ -339,7 +345,7 @@ module loa::arca_tests {
         // mint execute
         test_scenario::next_tx(scenario, USER);
         {            
-            arca::mint_execute(&mut gardian,&mut multi_sign, &mut extra_coin_meta, proposal_id, test_scenario::ctx(scenario));
+            arca::mint_execute(&mut gardian,&mut multi_sign, &mut extra_coin_meta, proposal_id, true, test_scenario::ctx(scenario));
             
         };
 
@@ -359,7 +365,7 @@ module loa::arca_tests {
         let proposal_id_for_burn: u256;
         test_scenario::next_tx(scenario, USER);
         {
-            let proposals = multisig::multisig::pending_proposals(&mut multi_sign, USER, test_scenario::ctx(scenario));
+            let proposals = multisig::multisig::pending_proposals(&mut multi_sign, test_scenario::ctx(scenario));
             assert!(vector::length(&proposals) == 1, 1);
             proposal_id_for_burn = vector::pop_back(&mut proposals);
         };
@@ -372,7 +378,7 @@ module loa::arca_tests {
         // burn execute
         test_scenario::next_tx(scenario, USER);
         {            
-            arca::burn_execute(&mut gardian,&mut multi_sign, &mut extra_coin_meta, proposal_id_for_burn, test_scenario::ctx(scenario));  
+            arca::burn_execute(&mut gardian,&mut multi_sign, &mut extra_coin_meta, proposal_id_for_burn, true, test_scenario::ctx(scenario));  
         };
 
         test_scenario::return_shared(multi_sign);
