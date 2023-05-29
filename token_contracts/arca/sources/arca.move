@@ -1,32 +1,35 @@
 module loa::arca{
     use std::string;
-    use std::ascii;
-    use std::option;
-    use std::vector;
+    use std::option::{Self};
 
-    use sui::object::{Self, UID};
+    use sui::object::{Self, ID, UID};
     use sui::coin::{Self, Coin, TreasuryCap, CoinMetadata};
     use sui::tx_context::{Self, TxContext};
-    // use sui::balance;
     use sui::transfer;
-    use sui::address;
     use sui::event;
+    use sui::url;
+    use multisig::multisig::{Self, MultiSignature};
 
     struct ARCA has drop {}
 
+    const Decimals:u8 = 9;
+    const MaxSupply:u64 = 1000000000_0000000000;
+
+    const MintOperation: u64 = 1;
+    const BurnOperation: u64 = 2;
+    const UpdateMetadataOperation: u64 = 3;
+
     /// For when an attempting to interact with another account's Gardian.
-    const ENotOwner: u64 = 1;
-    const ENotCashier: u64 = 2;
+    const ENotInMultiSigScope:u64 = 1;
+    const ENotParticipant: u64 = 2;
     /// For when mint value exceed the max supply
     const EMaxSupplyExceeded: u64 = 3;
-
-    const PERMISSION_DENY:u64 = 1;
+    
 
     struct Gardian has key, store {
         id: UID,
-        treasuryCap: TreasuryCap<ARCA>,
-        cashier: vector<address>,
-        owner: address
+        treasury_cap: TreasuryCap<ARCA>,
+        for_multi_sign: ID,
     }
 
     struct ExtraCoinMeta has key, store {
@@ -34,12 +37,37 @@ module loa::arca{
         max_supply: u64,
     }
 
-    // ===== Events =====
-
-    struct OwnershipTransferred has copy, drop {
-        from: address,
-        to: address,
+    // ====== internal structs ======
+    struct MintRequest has key, store {
+        id: UID,
+        amount: u64,
+        recipient: address,
     }
+
+    struct BurnRequest has key, store {
+        id: UID,
+        coin: Coin<ARCA>,
+        creator: address,
+    }
+
+    struct UpdateMetadataRequest has key, store {
+        id: UID,
+        name: string::String,
+        symbol: string::String,
+        description: string::String,
+        icon_url: string::String,
+        max_supply: u64,
+    }
+
+    struct Metadata has drop {
+        name: string::String,
+        symbol: string::String,
+        description: string::String,
+        icon_url: string::String,
+        max_supply: u64,
+    }
+
+    // ===== Events =====
 
     struct RoleGranted has copy, drop {
         cashier: address,
@@ -61,27 +89,78 @@ module loa::arca{
 
 
     fun init(witness: ARCA, tx: &mut TxContext) {
-        let (treasuryCap, coinMeta)  = coin::create_currency<ARCA>(witness, 18, b"T2", b"T2", b"T2 Token", option::none(), tx);
-        let cashier = vector::empty<address>();
-        vector::push_back(&mut cashier, address::from_u256(0x1029013315d87d2920a123b54edc67bc1b1412e1e29a1f430245606ccdf49b66));
-        let gardin = Gardian {
+        let (treasury_cap, coin_meta) = coin::create_currency<ARCA>(witness, Decimals, b"ARCA", b"ARCA", b"ARCA Token", option::none(), tx);
+        let multi_sig = multisig::create_multisig(tx);
+
+        let gardian = Gardian {
             id: object::new(tx), 
-            cashier: cashier, 
-            treasuryCap, 
-            owner: tx_context::sender(tx)
+            treasury_cap: treasury_cap, 
+            for_multi_sign: object::id(&multi_sig)
         };
-        transfer::public_share_object(coinMeta);
-        transfer::share_object(gardin);
+        transfer::public_share_object(multi_sig);
+        transfer::public_share_object(coin_meta);
+        transfer::share_object(gardian);
         transfer::share_object(ExtraCoinMeta{
             id: object::new(tx),
-            max_supply:300000000
+            max_supply: MaxSupply
         });
-        // public_transfer(gardin, tx_context::sender(tx));
+
     }
 
-    public entry fun mint(gardin: &mut Gardian, _extra_metadata: &ExtraCoinMeta, amount: u64, recipient: address, tx: &mut TxContext
+    /// send mint request, wait for the multi signature result to be executed or not
+    public entry fun mint_request(gardian: &mut Gardian, multi_signature : &mut MultiSignature,  extra_metadata: &ExtraCoinMeta, amount: u64, recipient: address, tx: &mut TxContext) {
+
+        // Only multi sig gardian
+        only_multi_sig_scope(multi_signature, gardian);
+        // Only participant
+        only_participant(multi_signature, tx);
+        // check the max suplly cap
+        max_supply_not_exceed(gardian, extra_metadata, amount);
+        let request = MintRequest{id: object::new(tx), recipient, amount};
+        let desc = sui::address::to_string(object::id_address(&request));
+
+        multisig::create_proposal(multi_signature, *string::bytes(&desc), MintOperation, request, tx);
+    }
+
+    /// execute the mint behavior while the multi signature approved
+    public entry fun mint_execute(gardian: &mut Gardian,  
+        multi_signature: &mut MultiSignature, 
+        extra_metadata: &ExtraCoinMeta, 
+        proposal_id: u256,
+        is_approve: bool,
+        tx: &mut TxContext
+    ) : bool {
+        // Only multi sig gardian
+        only_multi_sig_scope(multi_signature, gardian);
+        // Only participant
+        only_participant(multi_signature, tx);
+
+        if (is_approve) {
+            let (approved, _ ) = multisig::is_proposal_approved(multi_signature, proposal_id);
+            if (approved) {
+                let request = multisig::borrow_proposal_request<MintRequest>(multi_signature, &proposal_id, tx);
+                // final check for the max supply cap
+                max_supply_not_exceed(gardian, extra_metadata, request.amount);
+                // execute the mint action
+                mint(gardian, request.amount, request.recipient, tx);
+                multisig::multisig::mark_proposal_complete(multi_signature, proposal_id, tx);
+                return true
+            };
+        }else {
+            let (rejected, _ ) = multisig::is_proposal_rejected(multi_signature, proposal_id);
+            if (rejected) {
+                multisig::multisig::mark_proposal_complete(multi_signature, proposal_id, tx);
+                return true
+            }
+        };
+        
+        false
+    }
+
+    /// Mint `amount` of `Coin` and send it to `recipient`. Invokes `mint_and_transfer()`.
+    fun mint(gardian: &mut Gardian, amount: u64, recipient: address, tx: &mut TxContext
     ) {
-        coin::mint_and_transfer(&mut gardin.treasuryCap, amount, recipient, tx);
+        coin::mint_and_transfer(&mut gardian.treasury_cap, amount, recipient, tx);
 
         event::emit(CoinMinted{
             cashier: tx_context::sender(tx), 
@@ -91,75 +170,181 @@ module loa::arca{
 
     }
 
-    public entry fun burn(gardin: &mut Gardian, c: Coin<ARCA>, value: u64, tx: &mut TxContext) {
-        // can only burn the coin belong to the sender
+    /// send mint request, wait for the multi signature result to be executed or not
+    public entry fun burn_request(gardian: &mut Gardian, multi_signature : &mut MultiSignature, c: Coin<ARCA>, tx: &mut TxContext) {
+        // Only multi sig gardian
+        only_multi_sig_scope(multi_signature, gardian);
+        // Only participant
+        only_participant(multi_signature, tx);
 
-        if (value > 0) {
-            // TODO 
-            // let burn_coin = coin::from_balance(balance::split(coin::balance_mut(c), value), tx);
-            coin::burn(&mut gardin.treasuryCap, c);
-        } else {
-            coin::burn(&mut gardin.treasuryCap, c);
+        let request = BurnRequest{
+            id: object::new(tx), 
+            coin: c, 
+            creator: tx_context::sender(tx)
         };
 
-        event::emit(CoinBurned{ cashier: tx_context::sender(tx)});
-    }
-
-    public fun transfer_ownership(gardin: &mut Gardian, owner: address, _tx: &mut TxContext) {
-        let original_owner = gardin.owner;
-        gardin.owner = owner;
-
-        event::emit(OwnershipTransferred{
-            from: original_owner,
-            to: owner,
-        });
-    }
-
-    public fun grant_role(gardin: &mut Gardian, cashier: address, _tx: &mut TxContext) {
-        if (!vector::contains(&gardin.cashier, &cashier)) {
-            vector::push_back(&mut gardin.cashier, cashier);
-
-            event::emit(RoleGranted{cashier});
-        }
-    }
-    
-    public fun revoke_role(gardin: &mut Gardian, cashier: address, _tx: &mut TxContext) {
-        let (found, i) = vector::index_of(&mut gardin.cashier, &cashier);
-        if (found) {
-            vector::remove(&mut gardin.cashier, i);
-            event::emit(RoleRevoked{cashier});
-        }
+        let desc = sui::address::to_string(object::id_address(&request));
         
+        multisig::create_proposal(multi_signature, *string::bytes(&desc), BurnOperation, request, tx);
+    }
+
+    /// execute the mint behavior while the multi signature approved
+    public entry fun burn_execute(gardian: &mut Gardian,  
+        multi_signature: &mut MultiSignature, 
+        _extra_metadata: &ExtraCoinMeta, 
+        proposal_id: u256, 
+        is_approve: bool, 
+        tx: &mut TxContext
+    ) : bool {
+        // Only multi sig gardian
+        only_multi_sig_scope(multi_signature, gardian);
+        // Only participant
+        only_participant(multi_signature, tx);
+
+        if (is_approve) {
+            let (approved, _) = multisig::is_proposal_approved(multi_signature, proposal_id);
+            if (approved) {
+                // let BurnRequest {id, coin, creator} = multisig::extract_proposal_request<BurnRequest>(multi_signature, proposal_id, tx);
+                let request = multisig::extract_proposal_request<BurnRequest>(multi_signature, proposal_id, tx);
+                // burn(gardian, id, coin, creator, tx);
+                burn(gardian, request, tx);
+                multisig::multisig::mark_proposal_complete(multi_signature, proposal_id, tx);
+                return true
+            };
+        } else {
+            let (rejected, _) = multisig::is_proposal_rejected(multi_signature, proposal_id);
+            if (rejected) {
+                let BurnRequest {id, coin, creator} = multisig::extract_proposal_request<BurnRequest>(multi_signature, proposal_id, tx);
+                multisig::multisig::mark_proposal_complete(multi_signature, proposal_id, tx);
+                // merge back to coin
+                transfer::public_transfer(coin, creator);
+                object::delete(id);
+                return true
+            };
+        };
+        
+        false
+    }
+
+    // fun burn(gardian: &mut Gardian, id: UID, coin: Coin<ARCA>, _creator: address, tx: &mut TxContext) {
+    fun burn(gardian: &mut Gardian, request: BurnRequest, tx: &mut TxContext) {
+        let BurnRequest {id, coin, creator: _} = request;
+        // burn to destory the whole coin
+        coin::burn(&mut gardian.treasury_cap, coin);
+        object::delete(id);
+        
+        event::emit(CoinBurned{ cashier: tx_context::sender(tx)});
     }
 
     // === Update coin metadata ===
 
-    /// Update name of the coin in `CoinMetadata`
-    public entry fun update_name(
-        gardin: &Gardian, metadata: &mut CoinMetadata<ARCA>, name: string::String, _tx: &mut TxContext
+    /// Request Update partical metadata of the coin in `CoinMetadata`
+    public entry fun update_metadata_request(
+        gardian: &mut Gardian, 
+        multi_signature : &mut MultiSignature,  
+        name: string::String,
+        symbol: string::String,
+        description: string::String,
+        icon_url: string::String,
+        max_supply: u64, 
+        tx: &mut TxContext
     ) {
-        coin::update_name(&gardin.treasuryCap, metadata, name);
+
+        // Only multi sig gardian
+        only_multi_sig_scope(multi_signature, gardian);
+        // Only participant
+        only_participant(multi_signature, tx);
+
+        let request = UpdateMetadataRequest{
+            id: object::new(tx), 
+            name: name,
+            symbol: symbol,
+            description: description,
+            icon_url: icon_url,
+            max_supply: max_supply
+        };
+
+        let desc = sui::address::to_string(object::id_address(&request));
+
+        multisig::create_proposal(
+            multi_signature, *string::bytes(&desc), 
+            UpdateMetadataOperation, 
+            request, tx);
     }
 
-    // /// Update the symbol of the coin in `CoinMetadata`
-    public entry fun update_symbol(
-        gardin: &Gardian, metadata: &mut CoinMetadata<ARCA>, symbol: ascii::String, _tx: &mut TxContext
-    ) {
-        coin::update_symbol(&gardin.treasuryCap, metadata, symbol);
+    /// Execute Update partical metadata of the coin in `CoinMetadata`
+    public entry fun update_metadata_execute(
+        gardian: &mut Gardian,
+        multi_signature: &mut MultiSignature, 
+        metadata: &mut CoinMetadata<ARCA>, 
+        extra_metadata: &mut ExtraCoinMeta,
+        proposal_id: u256,
+        is_approve: bool,
+        tx: &mut TxContext
+    ) : bool {
+        // Only multi sig gardian
+        only_multi_sig_scope(multi_signature, gardian);
+        // Only participant
+        only_participant(multi_signature, tx);
+
+        if (is_approve) {
+            // make sure proposal got approved
+            let (approved, _) = multisig::is_proposal_approved(multi_signature, proposal_id);
+            if (approved) {
+                let request = multisig::borrow_proposal_request<UpdateMetadataRequest>(multi_signature, &proposal_id, tx);
+
+                let metadata_request: Metadata = Metadata{
+                    name: request.name,
+                    symbol: request.symbol,
+                    description: request.description,
+                    icon_url: request.icon_url,
+                    max_supply: request.max_supply, 
+                };
+                update_metadata(gardian, metadata, extra_metadata, metadata_request, tx);
+                multisig::multisig::mark_proposal_complete(multi_signature, proposal_id, tx);
+                return true
+            };
+        } else {
+            let (rejected, _) = multisig::is_proposal_rejected(multi_signature, proposal_id);
+            if (rejected) {
+                multisig::multisig::mark_proposal_complete(multi_signature, proposal_id, tx);
+                return true
+            };
+        };
+        
+        false
     }
 
-    /// Update the description of the coin in `CoinMetadata`
-    public entry fun update_description(
-        gardin: &Gardian, metadata: &mut CoinMetadata<ARCA>, description: string::String, _tx: &mut TxContext
-    ) {
-        coin::update_description(&gardin.treasuryCap, metadata, description);
-    }
 
-    /// Update the url of the coin in `CoinMetadata`
-    public entry fun update_icon_url(
-        gardin: &Gardian, metadata: &mut CoinMetadata<ARCA>, url: ascii::String, _tx: &mut TxContext
-    ) {
-        coin::update_icon_url(&gardin.treasuryCap, metadata, url);
+    /// Update partical metadata of the coin in `CoinMetadata`
+    fun update_metadata(
+        gardian: &Gardian, 
+        metadata: &mut CoinMetadata<ARCA>, 
+        extra_metadata: &mut ExtraCoinMeta,
+        request: Metadata, 
+        _tx: &mut TxContext) {
+        if (!string::is_empty(&request.name) && coin::get_name(metadata) != request.name) {
+            coin::update_name(&gardian.treasury_cap, metadata, request.name);
+        };
+        
+        if (!string::is_empty(&request.symbol) && coin::get_symbol(metadata) != string::to_ascii(request.symbol)) {
+            coin::update_symbol(&gardian.treasury_cap, metadata, string::to_ascii(request.symbol));
+        };
+
+        if (!string::is_empty(&request.description) && coin::get_description(metadata) != request.description) {
+            coin::update_description(&gardian.treasury_cap, metadata, request.description);
+        };
+
+        if (!string::is_empty(&request.icon_url) 
+            && (option::is_none(&coin::get_icon_url(metadata)) || option::extract(&mut coin::get_icon_url(metadata)) != url::new_unsafe(string::to_ascii(request.icon_url)))) {
+            coin::update_icon_url(&gardian.treasury_cap, metadata, string::to_ascii(request.icon_url));
+        };
+
+
+        if (extra_metadata.max_supply != request.max_supply) {
+            extra_metadata.max_supply = request.max_supply;
+        };
+
     }
 
     /// Return the max supply for the Coin
@@ -167,62 +352,23 @@ module loa::arca{
         extra_metadata.max_supply
     }
 
-    // === sepc functions ===
+    // === check permission functions ===
 
-    spec transfer_ownership {
-        include OnlyOwner{gardin: gardin, tx: _tx};
+    fun only_participant (multi_signature: &MultiSignature, tx: &mut TxContext) {
+        assert!(multisig::is_participant(multi_signature, tx_context::sender(tx)), ENotParticipant);
     }
 
-    spec grant_role {
-        include OnlyOwner{gardin: gardin, tx: _tx};
+    fun only_multi_sig_scope (multi_signature: &MultiSignature, gardian: &Gardian) {
+        assert!(object::id(multi_signature) == gardian.for_multi_sign, ENotInMultiSigScope);
     }
 
-    spec revoke_role {
-        include OnlyOwner{gardin, tx: _tx};
+    // check the post total supply not exceed the max supply
+    fun max_supply_not_exceed(gardian: &Gardian, extra_metadata: &ExtraCoinMeta, amount: u64) {
+        let total_supply = coin::total_supply(&gardian.treasury_cap);
+        assert!(total_supply + amount <= extra_metadata.max_supply, EMaxSupplyExceeded);
     }
 
-    spec mint {
-        include OnlyCashier(gardin, tx);
-        // check the post total supply not exceed the max supply
-        let post total_supply_post = coin::total_supply(&gardin.treasuryCap);
-        ensures total_supply_post <= _extra_metadata.max_spply;
-    }
 
-    spec burn {
-        include OnlyCashier(gardin, tx);
-    }
-
-    spec update_name {
-        include OnlyOwner{gardin, tx: _tx};
-    }
-
-    spec update_symbol {
-        include OnlyOwner{gardin, tx: _tx};
-    }
-
-    spec update_description {
-        include OnlyOwner{gardin, tx: _tx};
-    }
-
-    spec update_icon_url {
-        include OnlyOwner{gardin, tx: _tx};
-    }
-
-    spec schema OnlyOwner {
-        gardin: &Gardian;
-        tx: &mut TxContext;
-
-        aborts_if &gardin.owner != &tx_context::sender(tx);
-    }
-
-    spec schema OnlyCashier {
-        gardin: &Gardian;
-        tx: &mut TxContext;
-
-        aborts_if !vector::contains(&gardin.cashier, &tx_context::sender(tx));
-    }
-
-    // TODO coinmetadata function
     #[test_only]
     public fun test_init(ctx: &mut TxContext) {
         init(ARCA{}, ctx);

@@ -1,12 +1,13 @@
 [package]
 name = "loa"
 version = "0.0.1"
+# published-at = "0xf0af6a4bdef4e4c520b5480a9470bc033833fce9306cb360f34eef5c0b468f86"
 
 [dependencies]
-Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "main" }
-Multisig = {git = "https://github.com/Everest-Ventures-Group/Multisig.git", rev="master"}
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet" }
+multisig = {git = "https://github.com/Everest-Ventures-Group/Multisig.git", rev="master"}
 
 [addresses]
 loa =  "0x0"
-sui =  "0x2"
+Sui =  "0x2"
 std =  "0x1"
