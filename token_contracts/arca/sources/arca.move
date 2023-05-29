@@ -116,8 +116,10 @@ module loa::arca{
         only_participant(multi_signature, tx);
         // check the max suplly cap
         max_supply_not_exceed(gardian, extra_metadata, amount);
+        let request = MintRequest{id: object::new(tx), recipient, amount};
+        let desc = sui::address::to_string(object::id_address(&request));
 
-        multisig::create_proposal(multi_signature, b"create to @mint", MintOperation, MintRequest{id: object::new(tx), recipient, amount}, tx);
+        multisig::create_proposal(multi_signature, *string::bytes(&desc), MintOperation, request, tx);
     }
 
     /// execute the mint behavior while the multi signature approved
@@ -174,16 +176,16 @@ module loa::arca{
         only_multi_sig_scope(multi_signature, gardian);
         // Only participant
         only_participant(multi_signature, tx);
+
+        let request = BurnRequest{
+            id: object::new(tx), 
+            coin: c, 
+            creator: tx_context::sender(tx)
+        };
+
+        let desc = sui::address::to_string(object::id_address(&request));
         
-        multisig::create_proposal(
-            multi_signature,
-            b"create to @burn", 
-            BurnOperation, 
-            BurnRequest{
-                id: object::new(tx), 
-                coin: c, 
-                creator: tx_context::sender(tx)
-                }, tx);
+        multisig::create_proposal(multi_signature, *string::bytes(&desc), BurnOperation, request, tx);
     }
 
     /// execute the mint behavior while the multi signature approved
@@ -253,18 +255,21 @@ module loa::arca{
         // Only participant
         only_participant(multi_signature, tx);
 
+        let request = UpdateMetadataRequest{
+            id: object::new(tx), 
+            name: name,
+            symbol: symbol,
+            description: description,
+            icon_url: icon_url,
+            max_supply: max_supply
+        };
+
+        let desc = sui::address::to_string(object::id_address(&request));
+
         multisig::create_proposal(
-            multi_signature, 
-            b"create to @update_metadata", 
+            multi_signature, *string::bytes(&desc), 
             UpdateMetadataOperation, 
-            UpdateMetadataRequest{
-                id: object::new(tx), 
-                name: name,
-                symbol: symbol,
-                description: description,
-                icon_url: icon_url,
-                max_supply: max_supply
-                }, tx);
+            request, tx);
     }
 
     /// Execute Update partical metadata of the coin in `CoinMetadata`
