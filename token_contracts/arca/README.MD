@@ -1,0 +1,3 @@
+# devnet 
+public key of HD wallet:  0x98de9143adaa2b1d28745a7b70081dab5687c3dae8970da6dfef4e678e7f1a5e
+Published package 0xf1896faae9ff470b92bd7a33fac8e539d58ce667a7cfb7324ef78e29184fa1b1 from address 0x98de9143adaa2b1d28745a7b70081dab5687c3dae8970da6dfef4e678e7f1a5e
