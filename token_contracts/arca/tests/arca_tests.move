@@ -2,7 +2,7 @@
 #[test_only]
 module loa::arca_tests {
 
-    use loa::arca::{Self, ARCA, Gardian, ExtraCoinMeta, EMaxSupplyExceeded, ENotParticipant, ENotInMultiSigScope};
+    use loa::arca::{Self, ARCA, Guardian, ExtraCoinMeta, EMaxSupplyExceeded, ENotParticipant, ENotInMultiSigScope};
     use sui::coin::{Self, Coin};
     use sui::test_scenario::{Self, next_tx, ctx};
     use multisig::multisig::{MultiSignature};
@@ -31,13 +31,13 @@ module loa::arca_tests {
         };
 
         let multi_sign: MultiSignature;
-        let gardian: Gardian;
+        let gardian: Guardian;
         let extra_coin_meta: ExtraCoinMeta;
         // Mint a `Coin<ARCA>` object
         next_tx(scenario, USER);
         {
             multi_sign = test_scenario::take_shared<MultiSignature>(scenario);
-            gardian = test_scenario::take_shared<Gardian>(scenario);
+            gardian = test_scenario::take_shared<Guardian>(scenario);
             extra_coin_meta = test_scenario::take_shared<ExtraCoinMeta>(scenario);
             let ctx = test_scenario::ctx(scenario);
 
@@ -95,13 +95,13 @@ module loa::arca_tests {
         };
 
         let multi_sign: MultiSignature;
-        let gardian: Gardian;
+        let gardian: Guardian;
         let extra_coin_meta: ExtraCoinMeta;
         // Mint a `Coin<ARCA>` object
         next_tx(scenario, USER);
         {
             multi_sign = test_scenario::take_shared<MultiSignature>(scenario);
-            gardian = test_scenario::take_shared<Gardian>(scenario);
+            gardian = test_scenario::take_shared<Guardian>(scenario);
             extra_coin_meta = test_scenario::take_shared<ExtraCoinMeta>(scenario);
             let ctx = test_scenario::ctx(scenario);
 
@@ -132,7 +132,7 @@ module loa::arca_tests {
         };
 
         let multi_sign: MultiSignature;
-        let gardian: Gardian;
+        let gardian: Guardian;
         let extra_coin_meta: ExtraCoinMeta;
         // Mint a `Coin<ARCA>` object
         next_tx(scenario, USER);
@@ -142,7 +142,7 @@ module loa::arca_tests {
 
         next_tx(scenario, UNAUTHORIZED);
         {
-            gardian = test_scenario::take_shared<Gardian>(scenario);
+            gardian = test_scenario::take_shared<Guardian>(scenario);
             extra_coin_meta = test_scenario::take_shared<ExtraCoinMeta>(scenario);
 
             arca::mint_request(&mut gardian, &mut multi_sign, &mut extra_coin_meta,  1000, UNAUTHORIZED, test_scenario::ctx(scenario));
@@ -187,11 +187,11 @@ module loa::arca_tests {
             multi_sign2 = test_scenario::take_shared<MultiSignature>(scenario);
         };
         
-        let gardian: Gardian;
+        let gardian: Guardian;
         let extra_coin_meta: ExtraCoinMeta;
         test_scenario::next_tx(scenario, USER);
         {
-            gardian = test_scenario::take_shared<Gardian>(scenario);
+            gardian = test_scenario::take_shared<Guardian>(scenario);
             extra_coin_meta = test_scenario::take_shared<ExtraCoinMeta>(scenario);
             let ctx = test_scenario::ctx(scenario);
 
@@ -248,11 +248,11 @@ module loa::arca_tests {
             multisig::multisig::multisig_setting_execute(&mut multi_sign, 0, test_scenario::ctx(scenario));
         };
 
-        let gardian: Gardian;
+        let gardian: Guardian;
         let extra_coin_meta: ExtraCoinMeta;
         next_tx(scenario, USER);
         {
-            gardian = test_scenario::take_shared<Gardian>(scenario);
+            gardian = test_scenario::take_shared<Guardian>(scenario);
             extra_coin_meta = test_scenario::take_shared<ExtraCoinMeta>(scenario);
             arca::mint_request(&mut gardian, &mut multi_sign, &mut extra_coin_meta, MINT_AMOUNT, USER, test_scenario::ctx(scenario));
         };
@@ -313,13 +313,13 @@ module loa::arca_tests {
         };
 
         let multi_sign: MultiSignature;
-        let gardian: Gardian;
+        let gardian: Guardian;
         let extra_coin_meta: ExtraCoinMeta;
         // Mint a `Coin<ARCA>` object
         next_tx(scenario, USER);
         {
             multi_sign = test_scenario::take_shared<MultiSignature>(scenario);
-            gardian = test_scenario::take_shared<Gardian>(scenario);
+            gardian = test_scenario::take_shared<Guardian>(scenario);
             extra_coin_meta = test_scenario::take_shared<ExtraCoinMeta>(scenario);
             let ctx = test_scenario::ctx(scenario);
 
