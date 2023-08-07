@@ -11,4 +11,3 @@ multisig = {git = "https://github.com/Legend-of-Arcadia/Multisig.git", rev="mast
 loa =  "0x0"
 Sui =  "0x2"
 std =  "0x1"
-multisig = "0xd6438fcc40027e75a8ee36b6175efdd0307d234cc24c3e92606c2ff6950948e4"
