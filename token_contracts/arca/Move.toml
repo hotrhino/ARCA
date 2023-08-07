@@ -1,13 +1,13 @@
 [package]
 name = "loa"
 version = "0.0.1"
-published-at = "0xd6438fcc40027e75a8ee36b6175efdd0307d234cc24c3e92606c2ff6950948e4"
+published-at = "0x0b639fd79c62f27e3c6d46d30b1332933fa5e32d91ddf165c771caaacf524481"
 
 [dependencies]
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet" }
 multisig = {git = "https://github.com/hotrhino/Multisig.git", rev="master"}
 
 [addresses]
-loa =  "0x0"
+loa =  "0x0b639fd79c62f27e3c6d46d30b1332933fa5e32d91ddf165c771caaacf524481"
 Sui =  "0x2"
 std =  "0x1"
